@@ -72,8 +72,16 @@ class CashBundleSize(Range):
     default = 60
 
 
+class EarlyUpgrades(DefaultOnToggle):
+    """Put a few income upgrades in the cheapest skill tree checks (the ones you can buy right away) so you can
+    reach the $1,000 checks without getting stuck: 2 More Creatures, 2 Conveyors, 1 More Cans, 1 Can Value
+    and the Vacuum."""
+    display_name = "Early Upgrades"
+
+
 @dataclass
 class CanEmAllOptions(PerGameCommonOptions):
+    early_upgrades: EarlyUpgrades
     goal: Goal
     goal_children_fed: GoalChildrenFed
     prestige_upgrades: PrestigeUpgrades

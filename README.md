@@ -11,6 +11,8 @@ This is a fan project and is not affiliated with the developer of Can 'Em All.
 ## What's randomized
 - Every **skill tree node** is a check. Buying a node sends whatever item is there; the node's own effect only
   applies when its item arrives. Repeated skills are progressive items (for example, Progressive Turret Damage).
+- **Progressive Conveyor** (25) unlocks conveyors in tree order, line by line. A conveyor for a machine you don't
+  have yet waits until that **Progressive Machine** arrives (the F8 panel shows how many are waiting).
 - **Prestige upgrades** are checks (option `prestige_upgrades`).
 - **Children Fed milestones** (lifetime cans) are checks. **Sacrifice milestones** and **achievements** can be turned on.
 - Filler is **Cash Bundle** (some seconds of your current income) and **Upgrade Point** (one prestige point).
@@ -24,6 +26,7 @@ This is a fan project and is not affiliated with the developer of Can 'Em All.
 | --- | --- | --- |
 | `goal` | `ending` | Win condition |
 | `goal_children_fed` | 250000 | Target for the `children_fed` goal |
+| `early_upgrades` | on | Puts 2 More Creatures, 2 Conveyors, More Cans, Can Value and the Vacuum in the cheapest checks |
 | `prestige_upgrades` | on | Prestige upgrades are checks and items |
 | `children_fed_milestones` | 15 | Number of Children Fed checks |
 | `children_fed_max` | 250000 | Highest Children Fed milestone |

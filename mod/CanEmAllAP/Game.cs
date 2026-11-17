@@ -70,9 +70,8 @@ namespace CanEmAllAP
             {
                 var it = list[i];
                 var from = it.Player?.Name ?? "?";
-                var msg = from == Plugin.Slot.Value ? $"{it.LocationName}  ->  your {it.ItemName}" : $"Received {it.ItemName} from {from} ({it.LocationName})";
-                ApState.Messages.Enqueue(msg);
-                Plugin.L.LogInfo(msg);
+                // On-screen messages come from the server's item messages (ApState.OnServerMessage); this only logs.
+                Plugin.L.LogInfo($"Received {it.ItemName} from {from} ({it.LocationName})");
             }
             notifiedIndex = list.Count;
         }
@@ -87,21 +86,39 @@ namespace CanEmAllAP
                 counts[name] = counts.TryGetValue(name, out var c) ? c + 1 : 1;
             }
             var lookup = BuildSkillLookup();
-            foreach (var kv in counts)
+            // Two passes: a machine received in the same batch as its conveyors may be applied after them in the
+            // first pass, and the second pass then lets those conveyors through.
+            int waiting = 0;
+            for (int pass = 0; pass < 2; pass++)
             {
-                if (!ApState.ItemSkills.TryGetValue(kv.Key, out var skills)) continue;
-                for (int i = 0; i < Math.Min(kv.Value, skills.Count); i++)
+                waiting = 0;
+                foreach (var kv in counts)
                 {
-                    var id = skills[i];
-                    if (!lookup.TryGetValue(id, out var entry)) continue;
-                    var set = entry.prestige ? appliedPrestige : appliedTree;
-                    if (set.Contains(id)) continue;
-                    SkillGate.Apply(entry.skill);
-                    set.Add(id);
-                    Verbose($"Applied {id} ({kv.Key} #{i + 1})");
+                    if (!ApState.ItemSkills.TryGetValue(kv.Key, out var skills)) continue;
+                    int have = Math.Min(kv.Value, skills.Count);
+                    for (int i = 0; i < have; i++)
+                    {
+                        var id = skills[i];
+                        // A conveyor whose machine isn't here yet waits, and so does everything after it in the order.
+                        if (ApState.SkillRequires.TryGetValue(id, out var req) && !appliedTree.Contains(req))
+                        {
+                            waiting += have - i;
+                            break;
+                        }
+                        if (!lookup.TryGetValue(id, out var entry)) continue;
+                        var set = entry.prestige ? appliedPrestige : appliedTree;
+                        if (set.Contains(id)) continue;
+                        SkillGate.Apply(entry.skill);
+                        set.Add(id);
+                        Verbose($"Applied {id} ({kv.Key} #{i + 1})");
+                    }
                 }
             }
+            WaitingForMachine = waiting;
         }
+
+        /// <summary>Received conveyors held back until the machine for their line arrives.</summary>
+        internal static int WaitingForMachine;
 
         private static Dictionary<string, (Skill skill, bool prestige)> BuildSkillLookup()
         {
@@ -142,7 +159,7 @@ namespace CanEmAllAP
                 {
                     long amount = CashBundleAmount(save);
                     money.ChangeMoney(amount);
-                    ApState.Messages.Enqueue($"Cash Bundle: +${amount:N0}");
+                    Plugin.L.LogInfo($"Cash Bundle: +${amount:N0}");
                 }
                 else if (name == UpgradePoint)
                 {

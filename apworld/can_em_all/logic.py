@@ -5,13 +5,17 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from BaseClasses import CollectionState
 
-PRODUCTION_ITEMS = (
-    "Vacuum", "Progressive Machine", "Progressive Enemy Type", "Progressive More Cans", "Progressive Can Value",
+CONVEYOR_ITEM = "Progressive Conveyor"
+MACHINE_ITEM = "Progressive Machine"
+CONVEYORS_PER_LINE = 5
+
+# Production items other than conveyors; conveyors are counted separately below.
+_OTHER_PRODUCTION = (
+    "Vacuum", MACHINE_ITEM, "Progressive Enemy Type", "Progressive More Cans", "Progressive Can Value",
     "Progressive More Creatures", "Progressive Production Speed",
-    "Progressive Conveyor Line 1", "Progressive Conveyor Line 2", "Progressive Conveyor Line 3",
-    "Progressive Conveyor Line 4", "Progressive Conveyor Line 5",
 )
-# 67 production items exist in total.
+PRODUCTION_ITEMS = _OTHER_PRODUCTION + (CONVEYOR_ITEM,)
+# 67 production items exist in total (25 of them conveyors).
 
 # (max price, production needed)
 PRICE_TIERS = (
@@ -48,7 +52,11 @@ def production_for_prestige(points: int) -> int:
     return 45
 
 def production(state: "CollectionState", player: int) -> int:
-    return state.count_from_list(PRODUCTION_ITEMS, player)
+    # A conveyor only does something once its machine is there: the starting machine has 5,
+    # and each Progressive Machine opens another line of 5. Extra conveyors wait in the game.
+    machines = state.count(MACHINE_ITEM, player)
+    usable_conveyors = min(state.count(CONVEYOR_ITEM, player), CONVEYORS_PER_LINE * (1 + machines))
+    return state.count_from_list(_OTHER_PRODUCTION, player) + usable_conveyors
 
 def has_production(state: "CollectionState", player: int, need: int) -> bool:
     return need <= 0 or production(state, player) >= need

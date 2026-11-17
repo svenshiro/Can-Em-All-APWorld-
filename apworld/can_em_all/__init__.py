@@ -45,6 +45,15 @@ for i, key in enumerate(N.ACHIEVEMENT_ORDER):
 
 EFFECTIVE_PRICE = effective_prices(N.TREE_NODES)
 
+# Early Upgrades option: item -> copies placed in the starting checks (39 skill tree nodes cost $100 or less).
+EARLY_UPGRADES = {
+    "Progressive More Creatures": 2,
+    "Progressive Conveyor": 2,
+    "Progressive More Cans": 1,
+    "Progressive Can Value": 1,
+    "Vacuum": 1,
+}
+
 
 class CanEmAllItem(Item):
     game = GAME
@@ -76,6 +85,11 @@ class CanEmAllWorld(World):
         o = self.options
         self.children_fed_thresholds = _milestones(o.children_fed_milestones.value, 100, o.children_fed_max.value)
         self.sacrifice_thresholds = _milestones(o.sacrifice_milestones.value, 10, o.sacrifices_max.value)
+        if o.early_upgrades:
+            # Placed in this world's first sphere: checks you can buy before receiving anything.
+            early = self.multiworld.local_early_items[self.player]
+            for name, count in EARLY_UPGRADES.items():
+                early[name] = max(early.get(name, 0), count)
 
     # ---- items ----
     def create_item(self, name: str) -> CanEmAllItem:
@@ -147,7 +161,7 @@ class CanEmAllWorld(World):
     def fill_slot_data(self) -> Dict[str, Any]:
         o = self.options
         return {
-            "version": "0.1.0",
+            "version": "0.2.0",
             "goal": o.goal.current_key,
             "goal_children_fed": o.goal_children_fed.value,
             "prestige_upgrades": bool(o.prestige_upgrades),
@@ -160,6 +174,9 @@ class CanEmAllWorld(World):
             "location_id_base": N.LOCATION_ID_BASE,
             # progressive item -> skill ids in the order they're applied (cheapest first)
             "item_skills": _item_skill_order(),
+            # skill id -> skill id that must be applied first (a conveyor waits for its machine)
+            "skill_requires": {n["id"]: m for n in N.TREE_NODES
+                               if n["type"] == "UnlockConveyorSkill" and (m := N.conveyor_machine(n["id"]))},
         }
 
 

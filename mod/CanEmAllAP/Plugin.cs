@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -16,7 +16,7 @@ namespace CanEmAllAP
     public class Plugin : BasePlugin
     {
         public const string Guid = "tyler.canemall.archipelago";
-        public const string Version = "0.1.4";
+        public const string Version = "0.2.0";
         public const string GameName = "Can 'Em All";
 
         internal static ManualLogSource L;
@@ -90,6 +90,7 @@ namespace CanEmAllAP
         // (already bought, locked, can't afford) goes to the original so its sounds/shakes still happen.
         static bool Prefix(SkillNode __instance)
         {
+            if (ApBehaviour.BlocksGameInput) return false;   // a click on the F8 panel must not buy the node behind it
             try
             {
                 if (!SkillGate.Enabled) return true;
@@ -164,6 +165,32 @@ namespace CanEmAllAP
     static class Hook_Achievement
     {
         static void Prefix(SteamAchievement achievement) => Game.OnAchievement(achievement);
+    }
+
+    // While the F8 panel is open the game ignores Escape (pause), and the skill tree doesn't drag or zoom.
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.UpdatePauseInput))]
+    static class Hook_PauseInput
+    {
+        static bool Prefix() => !ApBehaviour.BlocksGameInput;
+    }
+
+    // Escape on the skill tree screen closes it and starts the next day.
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.UpdatePanelInput))]
+    static class Hook_PanelInput
+    {
+        static bool Prefix() => !ApBehaviour.BlocksGameInput;
+    }
+
+    [HarmonyPatch(typeof(SkillTreeView), nameof(SkillTreeView.UpdateDragInput))]
+    static class Hook_TreeDrag
+    {
+        static bool Prefix() => !ApBehaviour.BlocksGameInput;
+    }
+
+    [HarmonyPatch(typeof(SkillTreeView), nameof(SkillTreeView.UpdateZoomInput))]
+    static class Hook_TreeZoom
+    {
+        static bool Prefix() => !ApBehaviour.BlocksGameInput;
     }
 
     [HarmonyPatch(typeof(EndingCinematic), "OnEnable")]

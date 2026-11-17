@@ -76,11 +76,29 @@ PROGRESSIVE_BY_TYPE = {
     "VacuumStorageSkill": "Progressive Vacuum Storage",
 }
 
+CONVEYOR_ITEM = "Progressive Conveyor"
+MACHINE_ITEM = "Progressive Machine"
+CONVEYORS_PER_LINE = 5
+
 def tree_item_name(node) -> str:
     if node["type"] == "UnlockConveyorSkill":
-        line = re.fullmatch(r"UnlockConveyor(\d)_\d", node["id"]).group(1)
-        return f"Progressive Conveyor Line {line}"
+        return CONVEYOR_ITEM
     return PROGRESSIVE_BY_TYPE.get(node["type"], pretty(node["id"]))
+
+def conveyor_machine(node_id: str):
+    """The machine node a conveyor belongs to (walking up the tree), or None for line 1 (the starting machine)."""
+    by_id = {n["id"]: n for n in TREE_NODES}
+    seen, todo = set(), list(by_id[node_id]["requires"])
+    while todo:
+        i = todo.pop()
+        if i in seen or i not in by_id:
+            continue
+        seen.add(i)
+        if by_id[i]["type"] == "UnlockMachineSkill":
+            return i
+        if by_id[i]["type"] == "UnlockConveyorSkill":
+            todo += by_id[i]["requires"]
+    return None
 
 PRESTIGE_PROGRESSIVE = {
     "StartingCashSkill": "Progressive Starting Cash",

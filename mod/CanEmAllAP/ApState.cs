@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.Enums;
+using Archipelago.MultiClient.Net.MessageLog.Messages;
 using Archipelago.MultiClient.Net.Models;
 using Newtonsoft.Json.Linq;
 
@@ -23,6 +24,7 @@ namespace CanEmAllAP
         // slot data
         internal static long LocationBase = 6_330_000;
         internal static Dictionary<string, List<string>> ItemSkills = new();
+        internal static Dictionary<string, string> SkillRequires = new();   // conveyor skill -> its machine skill
         internal static List<long> ChildrenFedThresholds = new();
         internal static List<long> SacrificeThresholds = new();
         internal static string Goal = "ending";
@@ -57,11 +59,7 @@ namespace CanEmAllAP
                         SeedKey = $"{session.RoomState.Seed}_{slot}";
                         Session = session;
                         session.Socket.SocketClosed += reason => { SlotReady = false; Status = $"Disconnected: {reason}"; };
-                        session.MessageLog.OnMessageReceived += m =>
-                        {
-                            var text = m.ToString();
-                            if (text.Contains(slot)) Messages.Enqueue(text);
-                        };
+                        session.MessageLog.OnMessageReceived += OnServerMessage;
                         SlotReady = true;
                         Status = $"Connected as {slot}";
                         Messages.Enqueue($"Connected to Archipelago as {slot}");
@@ -81,6 +79,25 @@ namespace CanEmAllAP
                 }
                 finally { Connecting = false; }
             });
+        }
+
+        /// <summary>Only item movements that involve this slot are shown: what you received and from whom,
+        /// or what you sent and to whom. Chat, hints and other players' finds are left out.</summary>
+        private static void OnServerMessage(LogMessage m)
+        {
+            try
+            {
+                if (m is not ItemSendLogMessage s || m is HintItemSendLogMessage) return;
+                bool toMe = s.IsReceiverTheActivePlayer, fromMe = s.IsSenderTheActivePlayer;
+                if (!toMe && !fromMe) return;
+                var item = $"<color=#f0c050>{s.Item.ItemName}</color>";
+                string text =
+                    toMe && fromMe ? $"Found your own {item}" :
+                    toMe ? $"Received {item} from <color=#7fc8ff>{s.Sender.Name}</color>" :
+                           $"Sent {item} to <color=#7fc8ff>{s.Receiver.Name}</color>";
+                Messages.Enqueue(text);
+            }
+            catch (Exception e) { Plugin.L.LogWarning($"Message failed: {e.Message}"); }
         }
 
         internal static void Disconnect()
@@ -103,6 +120,7 @@ namespace CanEmAllAP
             }
             LocationBase = Get("location_id_base", 6_330_000L);
             ItemSkills = Get("item_skills", new Dictionary<string, List<string>>());
+            SkillRequires = Get("skill_requires", new Dictionary<string, string>());   // absent on 0.1.x seeds
             ChildrenFedThresholds = Get("children_fed_thresholds", new List<long>());
             SacrificeThresholds = Get("sacrifice_thresholds", new List<long>());
             Goal = Get("goal", "ending");
