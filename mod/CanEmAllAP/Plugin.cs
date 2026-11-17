@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -16,13 +17,13 @@ namespace CanEmAllAP
     public class Plugin : BasePlugin
     {
         public const string Guid = "tyler.canemall.archipelago";
-        public const string Version = "0.2.0";
+        public const string Version = "0.3.0";
         public const string GameName = "Can 'Em All";
 
         internal static ManualLogSource L;
         internal static string DataDir;
         internal static ConfigEntry<string> Server, Slot, Password;
-        internal static ConfigEntry<bool> AutoConnect;
+        internal static ConfigEntry<bool> AutoConnect, ShowAllItems;
         internal static ConfigEntry<bool> VerboseLog;
 
         public override void Load()
@@ -35,6 +36,7 @@ namespace CanEmAllAP
             Slot = Config.Bind("Connection", "Slot", "", "Your slot (player) name");
             Password = Config.Bind("Connection", "Password", "", "Room password, if any");
             AutoConnect = Config.Bind("Connection", "AutoConnect", true, "Connect automatically when the game starts if a slot name is set");
+            ShowAllItems = Config.Bind("Messages", "ShowAllItems", true, "Also show items other players send each other (any game), not only your own");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Log every skill/milestone event");
 
             var harmony = new Harmony(Guid);
@@ -155,10 +157,114 @@ namespace CanEmAllAP
         static void Postfix(SkillTreeView __instance) { Game.Tree = __instance; Game.OnRunLoaded("factory sold / tree reset"); }
     }
 
+    // ---- Prestige upgrades: effects only from Archipelago items ----
+    // Buying one (PermanentUpgrade.OnClick) only spends the points and sends the check. Loading a save
+    // (PermanentUpgradeManager.ApplySave) and selling the factory (Sell) apply every bought upgrade, so while they
+    // run the bought list is hidden from them and put back afterwards. Received prestige items are applied by
+    // Game.ApplySkillItems instead.
+    internal static class PrestigeGate
+    {
+        internal static List<SkillId> Hide(PermanentUpgradeManager mgr)
+        {
+            var list = SaveManager.Instance?.CurrentSaveData?.unlockedPermanentUpgrades;
+            if (list == null) return null;
+            var kept = new List<SkillId>();
+            foreach (var id in list) kept.Add(id);
+            list.Clear();
+            var nodes = mgr?.nodes;
+            if (nodes != null) for (int i = 0; i < nodes.Length; i++) if (nodes[i]?.skill != null) nodes[i].skill.isPurchased = false;
+            return kept;
+        }
+
+        internal static void Restore(PermanentUpgradeManager mgr, List<SkillId> kept)
+        {
+            if (kept == null) return;
+            var list = SaveManager.Instance?.CurrentSaveData?.unlockedPermanentUpgrades;
+            if (list == null) return;
+            foreach (var id in kept) if (!list.Contains(id)) list.Add(id);
+            var nodes = mgr?.nodes;
+            if (nodes != null)
+                for (int i = 0; i < nodes.Length; i++)
+                {
+                    var s = nodes[i]?.skill;
+                    if (s != null && kept.Contains(s.skillId)) s.isPurchased = true;
+                }
+        }
+    }
+
     [HarmonyPatch(typeof(PermanentUpgradeManager), nameof(PermanentUpgradeManager.ApplySave))]
     static class Hook_PrestigeApplySave
     {
-        static void Postfix(PermanentUpgradeManager __instance) { Game.Prestige = __instance; Game.OnPrestigeLoaded(); }
+        static void Prefix(PermanentUpgradeManager __instance, out List<SkillId> __state)
+        {
+            __state = null;
+            try { if (SkillGate.Enabled) __state = PrestigeGate.Hide(__instance); }
+            catch (Exception e) { Plugin.L.LogError($"Prestige load gate failed: {e}"); }
+        }
+
+        static void Postfix(PermanentUpgradeManager __instance, List<SkillId> __state)
+        {
+            try { PrestigeGate.Restore(__instance, __state); }
+            catch (Exception e) { Plugin.L.LogError($"Prestige restore failed: {e}"); }
+            Game.Prestige = __instance; Game.OnPrestigeLoaded();
+        }
+    }
+
+    [HarmonyPatch(typeof(PermanentUpgradeManager), nameof(PermanentUpgradeManager.Sell))]
+    static class Hook_PrestigeSell
+    {
+        static void Prefix(PermanentUpgradeManager __instance, out List<SkillId> __state)
+        {
+            __state = null;
+            try { if (SkillGate.Enabled) __state = PrestigeGate.Hide(__instance); }
+            catch (Exception e) { Plugin.L.LogError($"Prestige sell gate failed: {e}"); }
+        }
+
+        static void Postfix(PermanentUpgradeManager __instance, List<SkillId> __state)
+        {
+            try
+            {
+                if (__state == null) return;
+                PrestigeGate.Restore(__instance, __state);
+                SaveManager.Instance?.Save();   // the sale saved with the list hidden; save it back
+                Plugin.L.LogInfo($"Factory sold; {__state.Count} bought prestige upgrades kept");
+            }
+            catch (Exception e) { Plugin.L.LogError($"Prestige restore after sale failed: {e}"); }
+        }
+    }
+
+    [HarmonyPatch(typeof(PermanentUpgrade), nameof(PermanentUpgrade.OnClick))]
+    static class Hook_BuyPrestige
+    {
+        // A successful purchase without skill.ApplySkill(). Anything else (already bought, too few points) goes to
+        // the original so its sounds and shakes still happen.
+        static bool Prefix(PermanentUpgrade __instance)
+        {
+            if (ApBehaviour.BlocksGameInput) return false;
+            try
+            {
+                if (!SkillGate.Enabled) return true;
+                var s = __instance.skill;
+                var save = SaveManager.Instance?.CurrentSaveData;
+                if (s == null || save == null || __instance.IsPurchased || !__instance.CanPurchase) return true;
+                if (save.upgradePoints < s.price) return true;
+
+                UISound.Instance?.PlayPurchaseClip();
+                save.upgradePoints -= (int)s.price;
+                if (!save.unlockedPermanentUpgrades.Contains(s.skillId)) save.unlockedPermanentUpgrades.Add(s.skillId);
+                s.isPurchased = true;
+                try { PermanentUpgradeManager.Instance?.UpdatePointsText(); } catch { }
+                try { PermanentUpgradeManager.Instance?.UpdateOfferTexts(); } catch { }
+                try { if (__instance.background != null && __instance.purchasedSprite != null) __instance.background.sprite = __instance.purchasedSprite; } catch { }
+                Plugin.L.LogInfo($"Bought prestige {s.skillId} for {s.price} points (effect comes from its item)");
+                return false;
+            }
+            catch (Exception e)
+            {
+                Plugin.L.LogError($"Buying prestige failed, letting the game handle it: {e}");
+                return true;
+            }
+        }
     }
 
     [HarmonyPatch(typeof(SteamManager), nameof(SteamManager.Unlock))]
@@ -189,6 +295,20 @@ namespace CanEmAllAP
 
     [HarmonyPatch(typeof(SkillTreeView), nameof(SkillTreeView.UpdateZoomInput))]
     static class Hook_TreeZoom
+    {
+        static bool Prefix() => !ApBehaviour.BlocksGameInput;
+    }
+
+    // Mouse look: the player shouldn't turn while the mouse is used on the panel.
+    [HarmonyPatch(typeof(Player), nameof(Player.RotateCamera))]
+    static class Hook_PlayerLook
+    {
+        static bool Prefix() => !ApBehaviour.BlocksGameInput;
+    }
+
+    // The mouse wheel scrolls the Items tab, so it mustn't also switch weapons.
+    [HarmonyPatch(typeof(Inventory), nameof(Inventory.ScrollWeapons))]
+    static class Hook_WeaponScroll
     {
         static bool Prefix() => !ApBehaviour.BlocksGameInput;
     }

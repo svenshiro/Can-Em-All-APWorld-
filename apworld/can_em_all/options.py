@@ -27,16 +27,17 @@ class PrestigeUpgrades(DefaultOnToggle):
 
 
 class ChildrenFedMilestones(Range):
-    """How many Children Fed milestones are checks (lifetime cans). 0 turns them off."""
+    """Most Children Fed milestones (lifetime cans) that are checks. 0 turns them off.
+    Milestones go 5, 10, 20, 30, 40, 50, 100, 150, 200, 250, 500, 750, 1,000, 1,500 ... up to Children Fed Max
+    (28 milestones with the default max). If this is lower, milestones are skipped evenly."""
     display_name = "Children Fed Milestones"
     range_start = 0
     range_end = 50
-    default = 15
+    default = 50
 
 
 class ChildrenFedMax(Range):
-    """Children Fed needed for the last milestone. Milestones are spread between 100 and this, growing faster
-    towards the end. A normal first run ends somewhere around 280,000."""
+    """Children Fed needed for the last milestone. A normal first run ends somewhere around 280,000."""
     display_name = "Children Fed Max"
     range_start = 1_000
     range_end = 1_000_000
@@ -44,7 +45,8 @@ class ChildrenFedMax(Range):
 
 
 class SacrificeMilestones(Range):
-    """How many Sacrifices (lifetime kills) milestones are checks. 0 turns them off."""
+    """Most Sacrifices milestones (lifetime kills) that are checks. 0 turns them off.
+    They use the same 5, 10, 20, 30 ... steps as Children Fed, up to Sacrifices Max (21 with the default max)."""
     display_name = "Sacrifice Milestones"
     range_start = 0
     range_end = 50
@@ -59,7 +61,7 @@ class SacrificesMax(Range):
     default = 20_000
 
 
-class Achievements(Toggle):
+class Achievements(DefaultOnToggle):
     """Make the game's achievements checks (the ones tied to the ending are left out)."""
     display_name = "Achievements"
 
@@ -70,6 +72,25 @@ class CashBundleSize(Range):
     range_start = 10
     range_end = 600
     default = 60
+
+
+class UpgradePointSize(Range):
+    """How many prestige upgrade points one Upgrade Point item gives. Prestige upgrades cost 2 to 100 points each
+    (567 for all of them)."""
+    display_name = "Upgrade Point Size"
+    range_start = 1
+    range_end = 50
+    default = 10
+
+
+class DeathLinkChance(Range):
+    """With Death Link on: the chance, in percent, that a day ships a cursed can and sends a death link.
+    It's rolled once per day so it doesn't grow with your factory. A full run is roughly 60-80 days, so 7 sends
+    about 4-6 death links a run. Received death links end your current shift (the player can't die)."""
+    display_name = "Death Link Chance"
+    range_start = 0
+    range_end = 100
+    default = 7
 
 
 class EarlyUpgrades(DefaultOnToggle):
@@ -91,5 +112,7 @@ class CanEmAllOptions(PerGameCommonOptions):
     sacrifices_max: SacrificesMax
     achievements: Achievements
     cash_bundle_size: CashBundleSize
+    upgrade_point_size: UpgradePointSize
     start_inventory_from_pool: StartInventoryPool
     death_link: DeathLink
+    death_link_chance: DeathLinkChance

@@ -6,7 +6,7 @@ from worlds.AutoWorld import WebWorld, World
 
 from . import names as N
 from .logic import (GOAL_PRODUCTION, effective_prices, has_production, production_for_cans, production_for_prestige,
-                    production_for_price, PRODUCTION_ITEMS)
+                    production_for_price, PRODUCTION_ITEMS, SELLING_WEAPONS)
 from .options import CanEmAllOptions
 
 GAME = "Can 'Em All"
@@ -19,16 +19,29 @@ _weapon_items = {"Bat", "Knife", "Pistol", "Uzi", "AK-47", "Shotgun", "Rocket", 
 ALL_ITEM_NAMES: List[str] = sorted(set(_tree_items) | set(_prestige_items)) + N.FILLER_ITEMS
 ITEM_NAME_TO_ID = {name: N.ITEM_ID_BASE + i for i, name in enumerate(ALL_ITEM_NAMES)}
 
-def _milestones(count: int, start: int, end: int) -> List[int]:
+# Milestones climb a ladder of round numbers: 5, 10, 20, 30, 40, 50, then 1, 1.5, 2, 2.5, 5 and 7.5 times each
+# power of ten (100, 150, 200, 250, 500, 750, 1000, 1500, ...), so they come quickly at first and spread out later.
+_LADDER_START = [5, 10, 20, 30, 40, 50]
+_LADDER_STEPS = [1, 1.5, 2, 2.5, 5, 7.5]
+
+
+def _ladder(end: int) -> List[int]:
+    out = [v for v in _LADDER_START if v < end]
+    mag = 100
+    while mag < end:
+        out += [int(mag * m) for m in _LADDER_STEPS if mag * m < end]
+        mag *= 10
+    return out + [end]
+
+
+def _milestones(count: int, end: int) -> List[int]:
+    """The ladder up to `end`. If it has more steps than `count`, steps are dropped evenly (first and last kept)."""
     if count <= 0: return []
+    ladder = _ladder(end)
+    if count >= len(ladder): return ladder
     if count == 1: return [end]
-    out = []
-    for i in range(count):
-        v = start * (end / start) ** (i / (count - 1))
-        mag = 10 ** max(0, len(str(int(v))) - 2)
-        out.append(int(round(v / mag) * mag))
-    out[-1] = end
-    return sorted(set(out))
+    picks = {round(i * (len(ladder) - 1) / (count - 1)) for i in range(count)}
+    return [ladder[i] for i in sorted(picks)]
 
 LOCATION_NAME_TO_ID: Dict[str, int] = {}
 for n in N.TREE_NODES:
@@ -83,8 +96,8 @@ class CanEmAllWorld(World):
 
     def generate_early(self) -> None:
         o = self.options
-        self.children_fed_thresholds = _milestones(o.children_fed_milestones.value, 100, o.children_fed_max.value)
-        self.sacrifice_thresholds = _milestones(o.sacrifice_milestones.value, 10, o.sacrifices_max.value)
+        self.children_fed_thresholds = _milestones(o.children_fed_milestones.value, o.children_fed_max.value)
+        self.sacrifice_thresholds = _milestones(o.sacrifice_milestones.value, o.sacrifices_max.value)
         if o.early_upgrades:
             # Placed in this world's first sphere: checks you can buy before receiving anything.
             early = self.multiworld.local_early_items[self.player]
@@ -99,6 +112,8 @@ class CanEmAllWorld(World):
             cls = ItemClassification.progression
         elif name == N.VICTORY_ITEM:
             cls = ItemClassification.progression
+        elif name in SELLING_WEAPONS and self.options.prestige_upgrades:
+            cls = ItemClassification.progression   # needed to be offered the factory sale (prestige checks)
         else:
             cls = ItemClassification.useful
         return CanEmAllItem(name, cls, self.item_name_to_id.get(name), self.player)
@@ -134,8 +149,13 @@ class CanEmAllWorld(World):
         for n in N.TREE_NODES:
             self._add(factory, N.tree_location_name(n), production_for_price(EFFECTIVE_PRICE[n["id"]]))
         if self.options.prestige_upgrades:
+            p = self.player
             for u in N.PRESTIGE:
                 self._add(factory, N.prestige_location_name(u), production_for_prestige(u["price"]))
+                # Selling the factory opens with a story email that only comes after the AK-47 one.
+                loc = factory.locations[-1]
+                rule = loc.access_rule
+                loc.access_rule = lambda state, rule=rule: rule(state) and state.has_all(SELLING_WEAPONS, p)
         for i, t in enumerate(self.children_fed_thresholds):
             self._add(factory, f"Children Fed Milestone {i + 1}", production_for_cans(t))
         for i, t in enumerate(self.sacrifice_thresholds):
@@ -161,15 +181,19 @@ class CanEmAllWorld(World):
     def fill_slot_data(self) -> Dict[str, Any]:
         o = self.options
         return {
-            "version": "0.2.0",
+            "version": "0.3.0",
             "goal": o.goal.current_key,
             "goal_children_fed": o.goal_children_fed.value,
             "prestige_upgrades": bool(o.prestige_upgrades),
+            # which items are prestige upgrades, so the client can list them separately
+            "prestige_items": sorted(_prestige_items),
             "children_fed_thresholds": self.children_fed_thresholds,
             "sacrifice_thresholds": self.sacrifice_thresholds,
             "achievements": bool(o.achievements),
             "cash_bundle_seconds": o.cash_bundle_size.value,
+            "upgrade_point_size": o.upgrade_point_size.value,
             "death_link": bool(o.death_link),
+            "death_link_chance": o.death_link_chance.value,
             # skill id each tree/prestige location stands for (location id - base = SkillId enum value)
             "location_id_base": N.LOCATION_ID_BASE,
             # progressive item -> skill ids in the order they're applied (cheapest first)

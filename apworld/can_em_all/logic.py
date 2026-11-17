@@ -45,11 +45,19 @@ def production_for_cans(cans: int) -> int:
     if cans <= 600_000: return 45
     return 55
 
+# Selling the factory (the only way to earn points besides Upgrade Point items) is offered by story email 24,
+# "An Offer You Can't Refuse". Emails come in order and some wait for a weapon; the last one before it needs the
+# AK-47, so all five weapons up to it are required. (Email order is in data/story_mails.json.)
+SELLING_WEAPONS = ("Bat", "Knife", "Pistol", "Uzi", "AK-47")
+
+
 def production_for_prestige(points: int) -> int:
-    # Points come from selling the factory; a decent run pays for the cheap ones.
+    # Production 25 buys $1M nodes, enough for the AK-47 node ($250K) whether the email checks the node or the item.
+    # In testing, the first sale came after 3-4 hours on runs earning a couple of million and paid about 600 points,
+    # so points aren't the limit; the pricier upgrades still sit a little later.
     if points <= 20: return 25
-    if points <= 50: return 35
-    return 45
+    if points <= 50: return 30
+    return 35
 
 def production(state: "CollectionState", player: int) -> int:
     # A conveyor only does something once its machine is there: the starting machine has 5,
