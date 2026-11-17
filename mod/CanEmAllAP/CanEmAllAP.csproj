@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>CanEmAllAP</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!-- Point GameDir at your Can 'Em All folder (BepInEx must have run once so BepInEx/interop exists):
+         dotnet build -c Release -p:GameDir="E:\SteamLibrary\steamapps\common\Can 'Em All" -->
+    <GameDir Condition="'$(GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Can 'Em All</GameDir>
+    <GameRefs Condition="'$(GameRefs)' == ''">$(GameDir)/BepInEx</GameRefs>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Archipelago.MultiClient.Net" Version="6.7.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="$(GameRefs)/core/BepInEx.Core.dll" Private="false" />
+    <Reference Include="$(GameRefs)/core/BepInEx.Unity.IL2CPP.dll" Private="false" />
+    <Reference Include="$(GameRefs)/core/0Harmony.dll" Private="false" />
+    <Reference Include="$(GameRefs)/core/Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="$(GameRefs)/core/Il2CppInterop.Common.dll" Private="false" />
+    <Reference Include="$(GameRefs)/interop/Assembly-CSharp.dll" Private="false" />
+    <Reference Include="$(GameRefs)/interop/Il2Cppmscorlib.dll" Private="false" />
+    <Reference Include="$(GameRefs)/interop/UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="$(GameRefs)/interop/UnityEngine.IMGUIModule.dll" Private="false" />
+    <Reference Include="$(GameRefs)/interop/UnityEngine.UI.dll" Private="false" />
+    <Reference Include="$(GameRefs)/interop/UnityEngine.TextRenderingModule.dll" Private="false" />
+    <Reference Include="$(GameRefs)/interop/Unity.InputSystem.dll" Private="false" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,23 @@
+[
+  {"id": "StartingCashI", "type": "StartingCashSkill", "price": 2, "purchased": true},
+  {"id": "BruteForceI", "type": "BruteForceSkill", "price": 5, "purchased": true},
+  {"id": "ProfitBoostI", "type": "ProfitBoostSkill", "price": 5, "purchased": true},
+  {"id": "GrinderSpeed", "type": "GrinderSpeedSkill", "price": 10, "purchased": true},
+  {"id": "BruteForceII", "type": "BruteForceSkill", "price": 10, "purchased": true},
+  {"id": "NeverSkipLegs", "type": "NeverSkipLegsSkill", "price": 10, "purchased": true},
+  {"id": "StartingShockwave", "type": "StartingShockwaveSkill", "price": 15, "purchased": true},
+  {"id": "BruteForceIII", "type": "BruteForceSkill", "price": 20, "purchased": true},
+  {"id": "ProfitBoostII", "type": "ProfitBoostSkill", "price": 20, "purchased": true},
+  {"id": "LuxuryCans", "type": "LuxuryCansSkill", "price": 20, "purchased": true},
+  {"id": "LuckyHits", "type": "LuckyHitsSkill", "price": 20, "purchased": true},
+  {"id": "StartingCashII", "type": "StartingCashSkill", "price": 25, "purchased": true},
+  {"id": "ShinyShipment", "type": "ShinyShipmentSkill", "price": 25, "purchased": true},
+  {"id": "DamagedDelivery", "type": "DamagedDeliverySkill", "price": 25, "purchased": true},
+  {"id": "FirstBlood", "type": "FirstBloodSkill", "price": 30, "purchased": true},
+  {"id": "DeathTouch", "type": "DeathTouchSkill", "price": 30, "purchased": true},
+  {"id": "BruteForceIV", "type": "BruteForceSkill", "price": 35, "purchased": true},
+  {"id": "ProfitBoostIII", "type": "ProfitBoostSkill", "price": 40, "purchased": true},
+  {"id": "StartingCashIII", "type": "StartingCashSkill", "price": 50, "purchased": true},
+  {"id": "ProfitBoostIV", "type": "ProfitBoostSkill", "price": 70, "purchased": true},
+  {"id": "ColdStorage", "type": "ColdStorageSkill", "price": 100, "purchased": true}
+]

@@ -1,0 +1,12 @@
+bin/
+obj/
+releases/
+__pycache__/
+*.pyc
+*.apworld
+refs/
+*.sav
+*.archipelago
+*_Spoiler.txt
+.vs/
+*.user
